@@ -29,6 +29,11 @@ class GroceryRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun removeItems(weekStartDate: LocalDate, itemNames: List<String>) {
+        if (itemNames.isEmpty()) return
+        groceryDao.deleteItems(weekStartDate.toString(), itemNames)
+    }
+
     override suspend fun clearWeek(weekStartDate: LocalDate) {
         groceryDao.clearWeek(weekStartDate.toString())
     }

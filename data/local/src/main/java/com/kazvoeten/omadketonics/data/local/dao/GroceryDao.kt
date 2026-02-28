@@ -15,6 +15,9 @@ interface GroceryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: GroceryCheckEntity)
 
+    @Query("DELETE FROM grocery_checks WHERE week_start = :weekStart AND item_name IN (:itemNames)")
+    suspend fun deleteItems(weekStart: String, itemNames: List<String>)
+
     @Query("DELETE FROM grocery_checks WHERE week_start = :weekStart")
     suspend fun clearWeek(weekStart: String)
 }
