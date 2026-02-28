@@ -13,6 +13,7 @@ data class RecipeEntity(
     val protein: Int,
     val carbs: Int,
     val fat: Int,
+    @ColumnInfo(name = "recipe_icon") val recipeIcon: String,
 )
 
 @Entity(

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,15 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Fastfood
-import androidx.compose.material.icons.rounded.LocalDining
-import androidx.compose.material.icons.rounded.Restaurant
-import androidx.compose.material.icons.rounded.SentimentDissatisfied
-import androidx.compose.material.icons.rounded.SentimentNeutral
-import androidx.compose.material.icons.rounded.SentimentSatisfied
-import androidx.compose.material.icons.rounded.SentimentVeryDissatisfied
-import androidx.compose.material.icons.rounded.SentimentVerySatisfied
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -62,9 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,29 +61,33 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kazvoeten.omadketonics.model.DailyMood
 import com.kazvoeten.omadketonics.model.MacroAverages
+import com.kazvoeten.omadketonics.ui.components.RecipeDetailsDialog
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
-private val BgColor = Color(0xFF121214)
-private val CardBg = Color(0xFF1C1C20)
-private val CardBorder = Color(0xFF2A2A30)
-private val Primary = Color(0xFFC4D0FF)
-private val TextMain = Color.White
-private val TextMuted = Color(0xFF8E8E99)
+private val BgColor = Color(0xFF0F172A)
+private val CardBg = Color(0xFF1E293B)
+private val CardBorder = Color(0xFF334155)
+private val Primary = Color(0xFF2DD4BF)
+private val TextMain = Color(0xFFF8FAFC)
+private val TextMuted = Color(0xFF94A3B8)
 private val CarbsColor = Color(0xFF7CE0BB)
 private val ProteinColor = Color(0xFFFFE285)
 private val FatColor = Color(0xFFFF91A4)
-private val SuccessColor = Color(0xFF4ADE80)
+private val SuccessColor = Color(0xFF22C55E)
 
 @Composable
 fun PlanRoute(
     viewModel: PlanViewModel = hiltViewModel(),
+    onEditRecipe: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showCheatDialog by remember { mutableStateOf(false) }
+    var selectedMealId by remember { mutableStateOf<String?>(null) }
+    val selectedMeal = state.meals.firstOrNull { it.recipeId == selectedMealId }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -122,6 +115,27 @@ fun PlanRoute(
         )
     }
 
+    if (selectedMeal != null) {
+        RecipeDetailsDialog(
+            title = selectedMeal.name,
+            calories = selectedMeal.calories,
+            protein = selectedMeal.protein,
+            carbs = selectedMeal.carbs,
+            fat = selectedMeal.fat,
+            ingredients = selectedMeal.ingredients,
+            instructions = selectedMeal.instructions,
+            weekAverageCalories = state.averages.calories,
+            inCurrentPlan = true,
+            canAddToWeek = false,
+            onAddToWeek = null,
+            onEdit = {
+                selectedMealId = null
+                onEditRecipe(selectedMeal.recipeId)
+            },
+            onDismiss = { selectedMealId = null },
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -133,13 +147,24 @@ fun PlanRoute(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                Text(
-                    text = "THIS WEEK'S OMAD",
-                    color = TextMain,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .height(24.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Primary),
+                    )
+                    Text(
+                        text = "THIS WEEK'S OMAD",
+                        color = TextMain,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
             }
 
             item {
@@ -190,11 +215,11 @@ fun PlanRoute(
                 )
             }
 
-            itemsIndexed(state.meals, key = { _, meal -> meal.recipeId }) { index, meal ->
+            itemsIndexed(state.meals, key = { _, meal -> meal.recipeId }) { _, meal ->
                 MealCard(
-                    mealIndex = index + 1,
                     meal = meal,
                     enabled = state.isViewingCurrentWeek,
+                    onOpenRecipe = { selectedMealId = meal.recipeId },
                     onToggleEaten = {
                         viewModel.onEvent(
                             PlanUiEvent.SetMealEaten(
@@ -373,65 +398,29 @@ private fun MoodCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "TODAY'S MOOD",
+                text = "CURRENT ENERGY",
                 color = TextMuted,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp,
+                letterSpacing = 0.8.sp,
             )
-            TextButton(
-                onClick = onClearMood,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .height(30.dp)
-                    .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
-                contentPadding = PaddingValues(horizontal = 10.dp),
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
-                    contentDescription = null,
-                    tint = TextMuted,
-                    modifier = Modifier.size(12.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Clear",
-                    color = TextMuted,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = selectedMood?.let { "Energy: ${it.label}" } ?: "How are you?",
+                    color = Primary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
                 )
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DailyMood.entries.forEach { mood ->
-                val isActive = selectedMood == mood
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(
-                            width = 2.dp,
-                            color = if (isActive) CarbsColor else Color.Transparent,
-                            shape = RoundedCornerShape(16.dp),
-                        )
-                        .background(if (isActive) CarbsColor.copy(alpha = 0.15f) else Color.Transparent)
-                        .clickable { onSelectMood(mood) }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = moodIcon(mood),
-                        contentDescription = mood.label,
-                        tint = if (isActive) TextMain else TextMuted,
-                        modifier = Modifier
-                            .size(30.dp)
-                            .alpha(if (isActive) 1f else 0.45f),
+                if (selectedMood != null) {
+                    Text(
+                        text = "Clear",
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable(onClick = onClearMood),
                     )
                 }
             }
@@ -440,50 +429,43 @@ private fun MoodCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
+                .padding(top = 15.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = DailyMood.Terrible.label,
-                color = TextMuted,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(40.dp),
-            )
-            Text(
-                text = DailyMood.Low.label,
-                color = TextMuted,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(40.dp),
-            )
-            Text(
-                text = selectedMood?.label ?: "Select Mood",
-                color = if (selectedMood == null) TextMuted else TextMain,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = DailyMood.Good.label,
-                color = TextMuted,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(40.dp),
-            )
-            Text(
-                text = DailyMood.Great.label,
-                color = TextMuted,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(40.dp),
-            )
+            DailyMood.entries.forEach { mood ->
+                val isActive = selectedMood == mood
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(18.dp))
+                        .border(
+                            width = 2.dp,
+                            color = if (isActive) Primary else Color.Transparent,
+                            shape = RoundedCornerShape(18.dp),
+                        )
+                        .background(if (isActive) Primary.copy(alpha = 0.12f) else Color.Transparent)
+                        .clickable { onSelectMood(mood) }
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .alpha(if (isActive) 1f else 0.5f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = moodEmoji(mood),
+                        fontSize = 30.sp,
+                    )
+                }
+            }
         }
     }
 }
 
+private fun moodEmoji(mood: DailyMood): String = when (mood) {
+    DailyMood.Terrible -> "\uD83D\uDE2B"
+    DailyMood.Low -> "\uD83D\uDE15"
+    DailyMood.Okay -> "\uD83D\uDE10"
+    DailyMood.Good -> "\uD83D\uDE0A"
+    DailyMood.Great -> "\uD83E\uDD29"
+}
 @Composable
 private fun ActionsRow(
     enabled: Boolean,
@@ -542,9 +524,9 @@ private fun ActionsRow(
 
 @Composable
 private fun MealCard(
-    mealIndex: Int,
     meal: PlanMealItemUi,
     enabled: Boolean,
+    onOpenRecipe: () -> Unit,
     onToggleEaten: () -> Unit,
 ) {
     Box(
@@ -553,24 +535,23 @@ private fun MealCard(
             .clip(RoundedCornerShape(20.dp))
             .background(if (meal.isEaten) CardBg.copy(alpha = 0.6f) else CardBg)
             .border(1.dp, CardBorder, RoundedCornerShape(20.dp))
+            .clickable(onClick = onOpenRecipe)
             .padding(16.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(CardBorder),
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(BgColor),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = mealIndex.toString(),
-                    color = TextMuted,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    text = meal.recipeIcon,
+                    fontSize = 24.sp,
                 )
             }
 
@@ -586,45 +567,42 @@ private fun MealCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${meal.calories} kcal",
+                    text = "${meal.calories} kcal | ${meal.protein}g Protein | ${meal.fat}g Fat",
                     color = TextMuted,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 MealMacroBar(
                     protein = meal.protein,
                     carbs = meal.carbs,
                     fat = meal.fat,
+                    modifier = Modifier.padding(top = 10.dp, end = 4.dp),
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = "${meal.carbs}g Carbs",
-                        color = TextMuted,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "${meal.fat}g Fat",
-                        color = TextMuted,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
+            }
+
+            Surface(
+                color = if (meal.isEaten) SuccessColor else Color.Transparent,
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 2.dp,
+                    color = if (meal.isEaten) SuccessColor else CardBorder,
+                ),
+                modifier = Modifier
+                    .size(44.dp)
+                    .alpha(if (enabled) 1f else 0.45f)
+                    .then(if (enabled) Modifier.clickable { onToggleEaten() } else Modifier),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = if (meal.isEaten) "Completed" else "Mark meal complete",
+                        tint = if (meal.isEaten) Color.White else TextMuted,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            MealVisual(
-                index = mealIndex,
-                isCompleted = meal.isEaten,
-                enabled = enabled,
-                onToggle = onToggleEaten,
-            )
         }
     }
 }
@@ -634,6 +612,7 @@ private fun MealMacroBar(
     protein: Int,
     carbs: Int,
     fat: Int,
+    modifier: Modifier = Modifier,
 ) {
     val total = max(1, protein + carbs + fat).toFloat()
     val carbsWeight = max(0.001f, carbs / total)
@@ -641,11 +620,11 @@ private fun MealMacroBar(
     val fatWeight = max(0.001f, fat / total)
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(6.dp)
             .clip(RoundedCornerShape(3.dp))
-            .background(CardBorder),
+            .background(CardBorder.copy(alpha = 0.85f)),
     ) {
         Box(
             modifier = Modifier
@@ -669,59 +648,6 @@ private fun MealMacroBar(
 }
 
 @Composable
-private fun MealVisual(
-    index: Int,
-    isCompleted: Boolean,
-    enabled: Boolean,
-    onToggle: () -> Unit,
-) {
-    Box(
-        modifier = Modifier.size(width = 74.dp, height = 76.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(CardBorder)
-                .align(Alignment.TopCenter),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = mealIcon(index),
-                contentDescription = null,
-                tint = if (isCompleted) TextMuted else Primary,
-                modifier = Modifier.size(34.dp),
-            )
-        }
-
-        Surface(
-            color = if (isCompleted) SuccessColor else Primary,
-            shape = RoundedCornerShape(12.dp),
-            shadowElevation = 6.dp,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = 2.dp, y = 2.dp)
-                .alpha(if (enabled) 1f else 0.5f)
-                .clip(RoundedCornerShape(12.dp))
-                .then(if (enabled) Modifier.clickable { onToggle() } else Modifier),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Check,
-                    contentDescription = if (isCompleted) "Completed" else "Mark Eaten",
-                    tint = if (isCompleted) Color.White else Color.Black,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun AppCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -738,20 +664,6 @@ private fun AppCard(
             content = content,
         )
     }
-}
-
-private fun moodIcon(mood: DailyMood): ImageVector = when (mood) {
-    DailyMood.Terrible -> Icons.Rounded.SentimentVeryDissatisfied
-    DailyMood.Low -> Icons.Rounded.SentimentDissatisfied
-    DailyMood.Okay -> Icons.Rounded.SentimentNeutral
-    DailyMood.Good -> Icons.Rounded.SentimentSatisfied
-    DailyMood.Great -> Icons.Rounded.SentimentVerySatisfied
-}
-
-private fun mealIcon(index: Int): ImageVector = when ((index - 1) % 3) {
-    0 -> Icons.Rounded.Restaurant
-    1 -> Icons.Rounded.LocalDining
-    else -> Icons.Rounded.Fastfood
 }
 
 @Composable
@@ -799,3 +711,5 @@ private fun CheatMealDialog(
         },
     )
 }
+
+

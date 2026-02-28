@@ -26,6 +26,7 @@ class SaveRecipeUseCase @Inject constructor(
 
         val instructions = request.instructionsInput.lines().map { it.trim() }.filter { it.isNotBlank() }
         if (instructions.isEmpty()) return "Add at least one prep step."
+        val icon = request.icon.trim().ifBlank { "🍽️" }
 
         val macro = calculateRecipeMacros(cleanedIngredients)
         if (macro.calories <= 0) return "Calculated calories are zero. Adjust ingredient amounts."
@@ -40,6 +41,7 @@ class SaveRecipeUseCase @Inject constructor(
             fat = macro.fat,
             ingredients = cleanedIngredients,
             instructions = instructions,
+            icon = icon,
         )
 
         recipeRepository.saveRecipe(recipe)

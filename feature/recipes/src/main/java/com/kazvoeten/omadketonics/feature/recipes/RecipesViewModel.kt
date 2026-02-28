@@ -53,11 +53,15 @@ class RecipesViewModel @Inject constructor(
         editingRecipeId,
     ) { displayedWeek, recipes, selectedId, editingId ->
         latestDisplayedWeek = displayedWeek
+        val recipeById = recipes.associateBy { it.id }
+        val weekRecipes = displayedWeek.snapshot.mealIds.mapNotNull { recipeById[it] }
+        val weekAverageCalories = if (weekRecipes.isEmpty()) 0 else weekRecipes.sumOf { it.calories } / weekRecipes.size
         RecipesUiState(
             isLoading = false,
             isViewingCurrentWeek = displayedWeek.isViewingCurrentWeek,
             recipes = recipes,
             inPlanRecipeIds = displayedWeek.snapshot.mealIds.toSet(),
+            weekAverageCalories = weekAverageCalories,
             selectedRecipeId = selectedId,
             editingRecipeId = editingId,
         )
@@ -74,6 +78,7 @@ class RecipesViewModel @Inject constructor(
             return RecipeEditorSeed(
                 existingId = null,
                 name = "",
+                icon = "🍽️",
                 ingredients = emptyList(),
                 instructions = "",
             )
@@ -82,6 +87,7 @@ class RecipesViewModel @Inject constructor(
         return RecipeEditorSeed(
             existingId = recipe.id,
             name = recipe.name,
+            icon = recipe.icon,
             ingredients = recipe.ingredients,
             instructions = recipe.instructions.joinToString("\n"),
         )
@@ -123,6 +129,7 @@ class RecipesViewModel @Inject constructor(
                         SaveRecipeRequest(
                             existingId = event.existingId,
                             name = event.name,
+                            icon = event.icon,
                             ingredients = event.ingredients,
                             instructionsInput = event.instructions,
                         ),
@@ -179,6 +186,7 @@ class RecipesViewModel @Inject constructor(
 data class RecipeEditorSeed(
     val existingId: String?,
     val name: String,
+    val icon: String,
     val ingredients: List<Ingredient>,
     val instructions: String,
 )

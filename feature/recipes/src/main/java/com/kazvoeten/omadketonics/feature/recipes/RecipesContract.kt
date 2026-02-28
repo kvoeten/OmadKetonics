@@ -9,6 +9,7 @@ data class RecipesUiState(
     val isViewingCurrentWeek: Boolean = true,
     val recipes: List<Recipe> = emptyList(),
     val inPlanRecipeIds: Set<String> = emptySet(),
+    val weekAverageCalories: Int = 0,
     val selectedRecipeId: String? = null,
     val editingRecipeId: String? = null,
 )
@@ -30,6 +31,7 @@ sealed interface RecipesUiEvent {
     data class SaveRecipe(
         val existingId: String?,
         val name: String,
+        val icon: String,
         val ingredients: List<Ingredient>,
         val instructions: String,
     ) : RecipesUiEvent

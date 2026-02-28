@@ -21,6 +21,7 @@ class SaveRecipeUseCaseTest {
             SaveRecipeRequest(
                 existingId = null,
                 name = "  ",
+                icon = "🍗",
                 ingredients = listOf(sampleIngredient()),
                 instructionsInput = "step",
             ),
@@ -36,6 +37,7 @@ class SaveRecipeUseCaseTest {
             SaveRecipeRequest(
                 existingId = null,
                 name = "Chicken Bowl",
+                icon = "🍲",
                 ingredients = listOf(sampleIngredient()),
                 instructionsInput = "Cook\nEat",
             ),

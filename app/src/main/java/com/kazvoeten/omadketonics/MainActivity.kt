@@ -13,7 +13,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            OmadKetonicsTheme {
+            OmadKetonicsTheme(dynamicColor = false) {
                 OmadAppRoot()
             }
         }

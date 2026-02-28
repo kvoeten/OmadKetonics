@@ -28,6 +28,7 @@ fun RecipeWithDetails.toDomain(): Recipe {
         fat = recipe.fat,
         ingredients = ingredients.sortedBy { it.position }.map { it.toDomainIngredient() },
         instructions = instructions.sortedBy { it.stepIndex }.map { it.text },
+        icon = recipe.recipeIcon,
     )
 }
 
@@ -39,6 +40,7 @@ fun Recipe.toEntity(): RecipeEntity {
         protein = protein,
         carbs = carbs,
         fat = fat,
+        recipeIcon = icon,
     )
 }
 

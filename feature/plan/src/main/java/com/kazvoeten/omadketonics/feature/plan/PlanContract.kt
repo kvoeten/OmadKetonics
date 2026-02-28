@@ -1,15 +1,19 @@
 package com.kazvoeten.omadketonics.feature.plan
 
 import com.kazvoeten.omadketonics.model.DailyMood
+import com.kazvoeten.omadketonics.model.Ingredient
 import com.kazvoeten.omadketonics.model.MacroAverages
 
 data class PlanMealItemUi(
     val recipeId: String,
+    val recipeIcon: String,
     val name: String,
     val calories: Int,
     val protein: Int,
     val carbs: Int,
     val fat: Int,
+    val ingredients: List<Ingredient>,
+    val instructions: List<String>,
     val isEaten: Boolean,
     val rating: Int,
 )

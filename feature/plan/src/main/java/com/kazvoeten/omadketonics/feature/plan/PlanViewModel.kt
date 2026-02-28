@@ -50,11 +50,14 @@ class PlanViewModel @Inject constructor(
         val meals = weekRecipes.map { recipe ->
             PlanMealItemUi(
                 recipeId = recipe.id,
+                recipeIcon = recipe.icon,
                 name = recipe.name,
                 calories = recipe.calories,
                 protein = recipe.protein,
                 carbs = recipe.carbs,
                 fat = recipe.fat,
+                ingredients = recipe.ingredients,
+                instructions = recipe.instructions,
                 isEaten = eatenSet.contains(recipe.id),
                 rating = ratings[recipe.id] ?: 0,
             )

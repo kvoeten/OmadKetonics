@@ -3,6 +3,7 @@ package com.kazvoeten.omadketonics.data.repository.di
 import android.content.Context
 import androidx.room.Room
 import com.kazvoeten.omadketonics.data.local.OmadDatabase
+import com.kazvoeten.omadketonics.data.local.MIGRATION_1_2
 import com.kazvoeten.omadketonics.data.local.dao.GroceryDao
 import com.kazvoeten.omadketonics.data.local.dao.RecipeDao
 import com.kazvoeten.omadketonics.data.local.dao.SearchCacheDao
@@ -28,7 +29,9 @@ object LocalDataModule {
             context,
             OmadDatabase::class.java,
             "omad.db",
-        ).fallbackToDestructiveMigration().build()
+        ).addMigrations(MIGRATION_1_2)
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.LocalGroceryStore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,13 +52,6 @@ import com.kazvoeten.omadketonics.feature.rankings.RankingsRoute
 import com.kazvoeten.omadketonics.feature.recipes.RecipesRoute
 import com.kazvoeten.omadketonics.model.OmadTab
 
-private val RootBackground = Color.Black
-private val RootPanel = Color(0xFF121214)
-private val RootBorder = Color(0xFF2A2A30)
-private val RootPrimary = Color(0xFFC4D0FF)
-private val RootMuted = Color(0xFF8E8E99)
-private val RootText = Color.White
-
 private data class BottomTab(
     val tab: OmadTab,
     val label: String,
@@ -79,7 +73,15 @@ fun OmadAppRoot(
 ) {
     val ready by bootstrapViewModel.ready.collectAsStateWithLifecycle()
     val weekNav by weekNavViewModel.state.collectAsStateWithLifecycle()
+    val colors = MaterialTheme.colorScheme
+    val rootBackground = colors.background
+    val rootPanel = colors.surface
+    val rootBorder = colors.outline
+    val rootPrimary = colors.primary
+    val rootMuted = colors.onSurfaceVariant
+    val rootText = colors.onSurface
     var activeTab by rememberSaveable { mutableStateOf(OmadTab.Plan) }
+    var pendingRecipeToEdit by rememberSaveable { mutableStateOf<String?>(null) }
 
     if (!ready) {
         Box(
@@ -92,10 +94,10 @@ fun OmadAppRoot(
     }
 
     Scaffold(
-        containerColor = RootBackground,
+        containerColor = rootBackground,
         topBar = {
             Surface(
-                color = RootPanel,
+                color = rootPanel,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
@@ -112,6 +114,8 @@ fun OmadAppRoot(
                             imageVector = Icons.Rounded.ChevronLeft,
                             contentDescription = "Previous week",
                             enabled = weekNav.hasOlderWeek,
+                            mutedColor = rootMuted,
+                            disabledColor = rootBorder,
                             onClick = weekNavViewModel::goToOlderWeek,
                         )
 
@@ -122,7 +126,7 @@ fun OmadAppRoot(
                         ) {
                             Text(
                                 text = weekNav.title.replace("Week Of", "Week of"),
-                                color = RootText,
+                                color = rootText,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
@@ -131,7 +135,7 @@ fun OmadAppRoot(
                             Icon(
                                 imageVector = Icons.Rounded.CalendarMonth,
                                 contentDescription = null,
-                                tint = RootMuted,
+                                tint = rootMuted,
                                 modifier = Modifier.size(16.dp),
                             )
                         }
@@ -140,13 +144,15 @@ fun OmadAppRoot(
                             imageVector = Icons.Rounded.ChevronRight,
                             contentDescription = "Next week",
                             enabled = weekNav.hasNewerWeek,
+                            mutedColor = rootMuted,
+                            disabledColor = rootBorder,
                             onClick = weekNavViewModel::goToNewerWeek,
                         )
                     }
 
                     Text(
                         text = weekNav.subtitle,
-                        color = RootMuted,
+                        color = rootMuted,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
@@ -155,12 +161,12 @@ fun OmadAppRoot(
                     )
                 }
             }
-            HorizontalDivider(color = RootBorder)
+            HorizontalDivider(color = rootBorder)
         },
         bottomBar = {
             Surface(
-                color = RootPanel,
-                border = BorderStroke(1.dp, RootBorder),
+                color = rootPanel,
+                border = BorderStroke(1.dp, rootBorder),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
@@ -175,20 +181,25 @@ fun OmadAppRoot(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { activeTab = tab.tab },
+                                .clickable {
+                                    activeTab = tab.tab
+                                    if (tab.tab != OmadTab.Recipes) {
+                                        pendingRecipeToEdit = null
+                                    }
+                                },
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
                         ) {
                             Icon(
                                 imageVector = tab.icon,
                                 contentDescription = tab.label,
-                                tint = if (selected) RootPrimary else RootMuted,
+                                tint = if (selected) rootPrimary else rootMuted,
                                 modifier = Modifier.size(20.dp),
                             )
                             Spacer(modifier = Modifier.size(6.dp))
                             Text(
                                 text = tab.label,
-                                color = if (selected) RootPrimary else RootMuted,
+                                color = if (selected) rootPrimary else rootMuted,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -201,13 +212,21 @@ fun OmadAppRoot(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(RootBackground)
+                .background(rootBackground)
                 .padding(innerPadding),
         ) {
             when (activeTab) {
-                OmadTab.Plan -> PlanRoute()
+                OmadTab.Plan -> PlanRoute(
+                    onEditRecipe = { recipeId ->
+                        pendingRecipeToEdit = recipeId
+                        activeTab = OmadTab.Recipes
+                    },
+                )
                 OmadTab.Groceries -> GroceriesRoute()
-                OmadTab.Recipes -> RecipesRoute()
+                OmadTab.Recipes -> RecipesRoute(
+                    openEditorRecipeId = pendingRecipeToEdit,
+                    onOpenEditorConsumed = { pendingRecipeToEdit = null },
+                )
                 OmadTab.Rankings -> RankingsRoute()
                 OmadTab.Progress -> ProgressRoute()
             }
@@ -220,6 +239,8 @@ private fun WeekArrow(
     imageVector: ImageVector,
     contentDescription: String,
     enabled: Boolean,
+    mutedColor: Color,
+    disabledColor: Color,
     onClick: () -> Unit,
 ) {
     Box(
@@ -232,7 +253,7 @@ private fun WeekArrow(
         Icon(
             imageVector = imageVector,
             contentDescription = contentDescription,
-            tint = if (enabled) RootMuted else RootBorder,
+            tint = if (enabled) mutedColor else disabledColor,
             modifier = Modifier.size(20.dp),
         )
     }

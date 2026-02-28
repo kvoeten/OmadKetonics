@@ -33,7 +33,7 @@ import com.kazvoeten.omadketonics.data.local.entity.WeightLogEntity
         GroceryCheckEntity::class,
         IngredientSearchCacheEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class OmadDatabase : RoomDatabase() {
