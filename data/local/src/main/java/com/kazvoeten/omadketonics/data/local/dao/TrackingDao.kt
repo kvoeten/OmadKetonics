@@ -15,6 +15,9 @@ interface TrackingDao {
     @Query("SELECT * FROM meal_history ORDER BY date DESC")
     fun observeMealHistory(): Flow<List<MealHistoryEntity>>
 
+    @Query("SELECT * FROM meal_history WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC")
+    fun observeMealHistoryBetween(startDate: String, endDate: String): Flow<List<MealHistoryEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertMealHistory(item: MealHistoryEntity)
 

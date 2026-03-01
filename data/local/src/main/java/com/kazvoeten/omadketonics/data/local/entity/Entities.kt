@@ -156,3 +156,96 @@ data class IngredientSearchCacheEntity(
     @ColumnInfo(name = "created_at_epoch")
     val createdAtEpoch: Long,
 )
+
+@Entity(
+    tableName = "health_daily_summary",
+    indices = [Index("date")],
+)
+data class HealthDailySummaryEntity(
+    @PrimaryKey
+    val date: String,
+    @ColumnInfo(name = "sleep_total_minutes")
+    val sleepTotalMinutes: Int,
+    @ColumnInfo(name = "sleep_deep_minutes")
+    val sleepDeepMinutes: Int,
+    @ColumnInfo(name = "sleep_rem_minutes")
+    val sleepRemMinutes: Int,
+    @ColumnInfo(name = "sleep_light_minutes")
+    val sleepLightMinutes: Int,
+    @ColumnInfo(name = "sleep_session_count")
+    val sleepSessionCount: Int,
+    @ColumnInfo(name = "exercise_minutes")
+    val exerciseMinutes: Int,
+    @ColumnInfo(name = "active_calories")
+    val activeCalories: Int,
+    @ColumnInfo(name = "activity_session_count")
+    val activitySessionCount: Int,
+    @ColumnInfo(name = "high_intensity_sessions")
+    val highIntensitySessions: Int,
+    @ColumnInfo(name = "moderate_intensity_sessions")
+    val moderateIntensitySessions: Int,
+    @ColumnInfo(name = "low_intensity_sessions")
+    val lowIntensitySessions: Int,
+    val source: String,
+    @ColumnInfo(name = "updated_at_epoch")
+    val updatedAtEpoch: Long,
+)
+
+@Entity(
+    tableName = "manual_activity_logs",
+    indices = [Index("start_time_epoch"), Index("outbox_status"), Index("health_client_record_id")],
+)
+data class ManualActivityLogEntity(
+    @PrimaryKey
+    val id: String,
+    @ColumnInfo(name = "start_time_epoch")
+    val startTimeEpochMillis: Long,
+    @ColumnInfo(name = "end_time_epoch")
+    val endTimeEpochMillis: Long,
+    @ColumnInfo(name = "activity_type")
+    val activityType: String,
+    val exertion: Int,
+    val calories: Int,
+    val source: String,
+    @ColumnInfo(name = "outbox_status")
+    val outboxStatus: String,
+    @ColumnInfo(name = "health_client_record_id")
+    val healthClientRecordId: String?,
+    @ColumnInfo(name = "notes")
+    val notes: String?,
+    @ColumnInfo(name = "created_at_epoch")
+    val createdAtEpochMillis: Long,
+    @ColumnInfo(name = "synced_at_epoch")
+    val syncedAtEpochMillis: Long?,
+)
+
+@Entity(
+    tableName = "health_outbox",
+    indices = [Index("status"), Index("item_type"), Index("created_at_epoch")],
+)
+data class HealthOutboxEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    @ColumnInfo(name = "item_type")
+    val itemType: String,
+    @ColumnInfo(name = "payload_json")
+    val payloadJson: String,
+    val status: String,
+    val attempts: Int,
+    @ColumnInfo(name = "last_error")
+    val lastError: String?,
+    @ColumnInfo(name = "created_at_epoch")
+    val createdAtEpoch: Long,
+    @ColumnInfo(name = "updated_at_epoch")
+    val updatedAtEpoch: Long,
+)
+
+@Entity(tableName = "health_sync_state")
+data class HealthSyncStateEntity(
+    @PrimaryKey
+    val key: String,
+    @ColumnInfo(name = "value_text")
+    val valueText: String? = null,
+    @ColumnInfo(name = "value_long")
+    val valueLong: Long? = null,
+)

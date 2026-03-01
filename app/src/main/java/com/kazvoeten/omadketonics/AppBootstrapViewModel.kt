@@ -7,6 +7,7 @@ import com.kazvoeten.omadketonics.domain.policy.WeekMealSelectionPolicy
 import com.kazvoeten.omadketonics.domain.repository.RecipeRepository
 import com.kazvoeten.omadketonics.domain.repository.TrackingRepository
 import com.kazvoeten.omadketonics.domain.repository.WeekPlanRepository
+import com.kazvoeten.omadketonics.domain.usecase.SyncHealthDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ class AppBootstrapViewModel @Inject constructor(
     private val trackingRepository: TrackingRepository,
     private val weekPlanRepository: WeekPlanRepository,
     private val weekMealSelectionPolicy: WeekMealSelectionPolicy,
+    private val syncHealthDataUseCase: SyncHealthDataUseCase,
     private val dateProvider: DateProvider,
 ) : ViewModel() {
     private val _ready = MutableStateFlow(false)
@@ -35,6 +37,7 @@ class AppBootstrapViewModel @Inject constructor(
                 mealIds = mealIds,
                 date = dateProvider.sundayStart(dateProvider.today()),
             )
+            runCatching { syncHealthDataUseCase(daysBack = 90) }
             _ready.value = true
         }
     }

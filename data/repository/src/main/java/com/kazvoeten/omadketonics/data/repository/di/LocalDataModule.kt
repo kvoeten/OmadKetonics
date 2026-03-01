@@ -5,7 +5,9 @@ import androidx.room.Room
 import com.kazvoeten.omadketonics.data.local.OmadDatabase
 import com.kazvoeten.omadketonics.data.local.MIGRATION_1_2
 import com.kazvoeten.omadketonics.data.local.MIGRATION_2_3
+import com.kazvoeten.omadketonics.data.local.MIGRATION_3_4
 import com.kazvoeten.omadketonics.data.local.dao.GroceryDao
+import com.kazvoeten.omadketonics.data.local.dao.HealthDao
 import com.kazvoeten.omadketonics.data.local.dao.RecipeDao
 import com.kazvoeten.omadketonics.data.local.dao.SearchCacheDao
 import com.kazvoeten.omadketonics.data.local.dao.TrackingDao
@@ -30,7 +32,7 @@ object LocalDataModule {
             context,
             OmadDatabase::class.java,
             "omad.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -43,6 +45,9 @@ object LocalDataModule {
 
     @Provides
     fun provideTrackingDao(database: OmadDatabase): TrackingDao = database.trackingDao()
+
+    @Provides
+    fun provideHealthDao(database: OmadDatabase): HealthDao = database.healthDao()
 
     @Provides
     fun provideGroceryDao(database: OmadDatabase): GroceryDao = database.groceryDao()

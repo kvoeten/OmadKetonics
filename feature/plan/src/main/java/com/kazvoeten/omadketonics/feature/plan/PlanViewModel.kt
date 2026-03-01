@@ -1,20 +1,28 @@
-package com.kazvoeten.omadketonics.feature.plan
+﻿package com.kazvoeten.omadketonics.feature.plan
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kazvoeten.omadketonics.core.common.DateProvider
+import com.kazvoeten.omadketonics.domain.repository.HealthRepository
+import com.kazvoeten.omadketonics.domain.repository.RecipeRepository
+import com.kazvoeten.omadketonics.domain.repository.TrackingRepository
 import com.kazvoeten.omadketonics.domain.usecase.GenerateWeekPlanUseCase
 import com.kazvoeten.omadketonics.domain.usecase.GetDisplayedWeekUseCase
 import com.kazvoeten.omadketonics.domain.usecase.GetWeeklyAveragesUseCase
 import com.kazvoeten.omadketonics.domain.usecase.LogMealUseCase
+import com.kazvoeten.omadketonics.domain.usecase.LogWeightUseCase
 import com.kazvoeten.omadketonics.domain.usecase.SetMoodUseCase
-import com.kazvoeten.omadketonics.domain.repository.RecipeRepository
-import com.kazvoeten.omadketonics.domain.repository.TrackingRepository
+import com.kazvoeten.omadketonics.model.DailyHealthSummary
+import com.kazvoeten.omadketonics.model.DailyMood
+import com.kazvoeten.omadketonics.model.HealthConnectionState
+import com.kazvoeten.omadketonics.model.ProgressDeepLinkMetric
+import com.kazvoeten.omadketonics.model.Recipe
 import com.kazvoeten.omadketonics.model.WeekSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,6 +30,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -29,23 +38,64 @@ class PlanViewModel @Inject constructor(
     private val getDisplayedWeekUseCase: GetDisplayedWeekUseCase,
     private val recipeRepository: RecipeRepository,
     private val trackingRepository: TrackingRepository,
+    private val healthRepository: HealthRepository,
     private val getWeeklyAveragesUseCase: GetWeeklyAveragesUseCase,
     private val generateWeekPlanUseCase: GenerateWeekPlanUseCase,
     private val logMealUseCase: LogMealUseCase,
     private val setMoodUseCase: SetMoodUseCase,
+    private val logWeightUseCase: LogWeightUseCase,
+    private val dateProvider: DateProvider,
 ) : ViewModel() {
     private val effectEmitter = MutableSharedFlow<PlanEffect>(extraBufferCapacity = 8)
     val effects = effectEmitter
 
-    val state = combine(
+    private val today = dateProvider.today()
+    private val yesterday = today.minusDays(1)
+
+    private val ephemeralState = MutableStateFlow(PlanEphemeralState())
+
+    private val planPrimary = combine(
         getDisplayedWeekUseCase().filterNotNull(),
         recipeRepository.observeRecipes(),
         trackingRepository.observeRatings(),
         trackingRepository.observeMoods(),
     ) { displayedWeek, recipes, ratings, moods ->
-        val recipeById = recipes.associateBy { it.id }
-        val weekRecipes = displayedWeek.snapshot.mealIds.mapNotNull { recipeById[it] }
-        val eatenSet = displayedWeek.snapshot.eatenMealIds.toSet()
+        PlanPrimaryData(
+            displayedWeek = displayedWeek,
+            recipes = recipes,
+            ratings = ratings,
+            moods = moods,
+        )
+    }
+
+    private val planHealth = combine(
+        healthRepository.connectionState,
+        healthRepository.observeDailySummaries(yesterday, yesterday),
+        healthRepository.observeDailySummaries(today, today),
+    ) { healthConnection, sleepSummary, todayHealthSummary ->
+        PlanHealthData(
+            healthConnection = healthConnection,
+            sleepSummary = sleepSummary.firstOrNull(),
+            todayHealthSummary = todayHealthSummary.firstOrNull(),
+        )
+    }
+
+    private val planData = combine(planPrimary, planHealth) { primary, health ->
+        PlanData(
+            displayedWeek = primary.displayedWeek,
+            recipes = primary.recipes,
+            ratings = primary.ratings,
+            moods = primary.moods,
+            healthConnection = health.healthConnection,
+            sleepSummary = health.sleepSummary,
+            todayHealthSummary = health.todayHealthSummary,
+        )
+    }
+
+    val state = combine(planData, ephemeralState) { data, ephemeral ->
+        val recipeById = data.recipes.associateBy { it.id }
+        val weekRecipes = data.displayedWeek.snapshot.mealIds.mapNotNull { recipeById[it] }
+        val eatenSet = data.displayedWeek.snapshot.eatenMealIds.toSet()
 
         val meals = weekRecipes.map { recipe ->
             PlanMealItemUi(
@@ -60,19 +110,31 @@ class PlanViewModel @Inject constructor(
                 ingredients = recipe.ingredients,
                 instructions = recipe.instructions,
                 isEaten = eatenSet.contains(recipe.id),
-                rating = ratings[recipe.id] ?: 0,
+                rating = data.ratings[recipe.id] ?: 0,
             )
         }
 
         val averages = getWeeklyAveragesUseCase(weekRecipes)
+        val quickSleep = data.sleepSummary
+        val quickTodayActivity = data.todayHealthSummary
+
         PlanUiState(
             isLoading = false,
-            weekTitle = buildWeekTitle(displayedWeek.snapshot),
-            weekSubtitle = buildWeekSubtitle(displayedWeek.snapshot, displayedWeek.isViewingCurrentWeek),
-            isViewingCurrentWeek = displayedWeek.isViewingCurrentWeek,
+            weekTitle = buildWeekTitle(data.displayedWeek.snapshot),
+            weekSubtitle = buildWeekSubtitle(data.displayedWeek.snapshot, data.displayedWeek.isViewingCurrentWeek),
+            isViewingCurrentWeek = data.displayedWeek.isViewingCurrentWeek,
             averages = averages,
-            todayMood = moods[LocalDate.now()],
+            todayMood = data.moods[today],
             meals = meals,
+            healthAvailability = data.healthConnection.availability,
+            healthConnected = data.healthConnection.hasPermissions,
+            healthPendingOutbox = data.healthConnection.pendingOutboxCount,
+            quickSleepMinutes = quickSleep?.sleep?.totalSleepMinutes ?: 0,
+            quickSleepRecoveryScore = recoveryFromSleep(quickSleep?.sleep?.totalSleepMinutes ?: 0),
+            quickActivityCalories = quickTodayActivity?.activity?.activeCalories ?: 0,
+            quickActivityMinutes = quickTodayActivity?.activity?.exerciseMinutes ?: 0,
+            showWeightDialog = ephemeral.showWeightDialog,
+            weightInput = ephemeral.weightInput,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -144,6 +206,53 @@ class PlanViewModel @Inject constructor(
                     }
                 }
             }
+
+            PlanUiEvent.OpenSleepInsights -> {
+                viewModelScope.launch {
+                    effectEmitter.emit(PlanEffect.OpenProgress(metric = ProgressDeepLinkMetric.SleepQuality))
+                }
+            }
+
+            PlanUiEvent.OpenActivityInsights -> {
+                viewModelScope.launch {
+                    effectEmitter.emit(PlanEffect.OpenProgress(metric = ProgressDeepLinkMetric.ExerciseLoad))
+                }
+            }
+
+            PlanUiEvent.OpenActivityLogger -> {
+                viewModelScope.launch {
+                    effectEmitter.emit(
+                        PlanEffect.OpenProgress(
+                            metric = ProgressDeepLinkMetric.ExerciseLoad,
+                            openActivityLogger = true,
+                        ),
+                    )
+                }
+            }
+
+            PlanUiEvent.ShowWeightDialog -> {
+                ephemeralState.update { it.copy(showWeightDialog = true) }
+            }
+
+            PlanUiEvent.DismissWeightDialog -> {
+                ephemeralState.update { it.copy(showWeightDialog = false) }
+            }
+
+            is PlanUiEvent.UpdateWeightInput -> {
+                ephemeralState.update { it.copy(weightInput = event.value) }
+            }
+
+            PlanUiEvent.SaveWeight -> {
+                viewModelScope.launch {
+                    val success = logWeightUseCase(ephemeralState.value.weightInput)
+                    if (success) {
+                        ephemeralState.update { it.copy(showWeightDialog = false, weightInput = "") }
+                        effectEmitter.emit(PlanEffect.Message("Weight saved"))
+                    } else {
+                        effectEmitter.emit(PlanEffect.Message("Invalid weight"))
+                    }
+                }
+            }
         }
     }
 
@@ -162,4 +271,36 @@ class PlanViewModel @Inject constructor(
         val prefix = if (isCurrentWeek) "Current" else "Past"
         return "$prefix - $eaten / $total eaten"
     }
+
+    private fun recoveryFromSleep(sleepMinutes: Int): Int {
+        return ((sleepMinutes / 450f) * 100f).roundToInt().coerceIn(0, 100)
+    }
+
+    private data class PlanEphemeralState(
+        val showWeightDialog: Boolean = false,
+        val weightInput: String = "",
+    )
+
+    private data class PlanData(
+        val displayedWeek: com.kazvoeten.omadketonics.domain.model.DisplayedWeek,
+        val recipes: List<Recipe>,
+        val ratings: Map<String, Int>,
+        val moods: Map<java.time.LocalDate, DailyMood>,
+        val healthConnection: HealthConnectionState,
+        val sleepSummary: DailyHealthSummary?,
+        val todayHealthSummary: DailyHealthSummary?,
+    )
+
+    private data class PlanPrimaryData(
+        val displayedWeek: com.kazvoeten.omadketonics.domain.model.DisplayedWeek,
+        val recipes: List<Recipe>,
+        val ratings: Map<String, Int>,
+        val moods: Map<java.time.LocalDate, DailyMood>,
+    )
+
+    private data class PlanHealthData(
+        val healthConnection: HealthConnectionState,
+        val sleepSummary: DailyHealthSummary?,
+        val todayHealthSummary: DailyHealthSummary?,
+    )
 }

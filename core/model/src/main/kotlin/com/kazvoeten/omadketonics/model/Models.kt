@@ -101,3 +101,112 @@ enum class ChartType {
     Weight,
     Calories,
 }
+
+enum class HealthAvailability {
+    Unavailable,
+    ProviderUpdateRequired,
+    Available,
+}
+
+data class HealthConnectionState(
+    val availability: HealthAvailability = HealthAvailability.Unavailable,
+    val hasPermissions: Boolean = false,
+    val isSyncing: Boolean = false,
+    val lastSyncedAtEpochMillis: Long? = null,
+    val pendingOutboxCount: Int = 0,
+    val lastError: String? = null,
+)
+
+data class SleepSummary(
+    val totalSleepMinutes: Int = 0,
+    val deepSleepMinutes: Int = 0,
+    val remSleepMinutes: Int = 0,
+    val lightSleepMinutes: Int = 0,
+    val sessionCount: Int = 0,
+)
+
+data class ActivitySummary(
+    val exerciseMinutes: Int = 0,
+    val activeCalories: Int = 0,
+    val sessionCount: Int = 0,
+    val highIntensitySessions: Int = 0,
+    val moderateIntensitySessions: Int = 0,
+    val lowIntensitySessions: Int = 0,
+)
+
+data class DailyHealthSummary(
+    val date: LocalDate,
+    val sleep: SleepSummary = SleepSummary(),
+    val activity: ActivitySummary = ActivitySummary(),
+    val source: String = "health_connect",
+)
+
+enum class ManualActivitySource {
+    AppManual,
+    External,
+}
+
+data class ManualActivityInput(
+    val startTimeEpochMillis: Long,
+    val endTimeEpochMillis: Long,
+    val activityType: String,
+    val exertion: Int,
+    val caloriesOverride: Int? = null,
+    val notes: String? = null,
+)
+
+data class ManualActivityLog(
+    val id: String,
+    val startTimeEpochMillis: Long,
+    val endTimeEpochMillis: Long,
+    val activityType: String,
+    val exertion: Int,
+    val calories: Int,
+    val source: ManualActivitySource,
+    val outboxStatus: HealthOutboxStatus,
+    val healthClientRecordId: String?,
+    val createdAtEpochMillis: Long,
+    val syncedAtEpochMillis: Long? = null,
+)
+
+enum class HealthOutboxType {
+    ActivityUpsert,
+    NutritionUpsert,
+    NutritionDelete,
+}
+
+enum class HealthOutboxStatus {
+    Pending,
+    Processing,
+    Synced,
+    Failed,
+}
+
+enum class InsightRange {
+    Day,
+    Week,
+    Month,
+}
+
+enum class ProgressDeepLinkMetric {
+    ActivityRings,
+    ExerciseLoad,
+    WeightTrend,
+    CalorieConsistency,
+    SleepQuality,
+}
+
+data class ProgressInsights(
+    val recoveryScore: Int,
+    val sleepGoalMetDays: Int,
+    val averageSleepMinutes: Int,
+    val weeklyExerciseMinutes: Int,
+    val weeklyActiveCalories: Int,
+    val activityIntensityDeltaPct: Int,
+    val moodCorrelationPct: Int,
+    val calorieAverage: Int,
+    val caloriePeak: Int,
+    val narrativeSleep: String,
+    val narrativeActivity: String,
+    val narrativeCalories: String,
+)

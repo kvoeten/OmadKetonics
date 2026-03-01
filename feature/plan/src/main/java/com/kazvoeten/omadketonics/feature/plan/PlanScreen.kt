@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Fastfood
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -68,10 +69,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kazvoeten.omadketonics.model.DailyMood
 import com.kazvoeten.omadketonics.model.MacroAverages
+import com.kazvoeten.omadketonics.model.ProgressDeepLinkMetric
 import com.kazvoeten.omadketonics.ui.components.RecipeDetailsDialog
 import com.kazvoeten.omadketonics.ui.components.StarRow
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -91,6 +94,7 @@ private val SuccessColor = Color(0xFF22C55E)
 fun PlanRoute(
     viewModel: PlanViewModel = hiltViewModel(),
     onEditRecipe: (String) -> Unit = {},
+    onOpenProgressMetric: (ProgressDeepLinkMetric, Boolean) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -131,6 +135,7 @@ fun PlanRoute(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is PlanEffect.Message -> snackbarHostState.showSnackbar(effect.value)
+                is PlanEffect.OpenProgress -> onOpenProgressMetric(effect.metric, effect.openActivityLogger)
             }
         }
     }
@@ -225,6 +230,15 @@ fun PlanRoute(
         )
     }
 
+    if (state.showWeightDialog) {
+        WeightLogDialog(
+            value = state.weightInput,
+            onDismiss = { viewModel.onEvent(PlanUiEvent.DismissWeightDialog) },
+            onValueChange = { viewModel.onEvent(PlanUiEvent.UpdateWeightInput(it)) },
+            onSave = { viewModel.onEvent(PlanUiEvent.SaveWeight) },
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -279,11 +293,31 @@ fun PlanRoute(
             }
 
             item {
+                QuickSleepCard(
+                    minutes = state.quickSleepMinutes,
+                    recoveryScore = state.quickSleepRecoveryScore,
+                    synced = state.healthConnected,
+                    onOpen = { viewModel.onEvent(PlanUiEvent.OpenSleepInsights) },
+                )
+            }
+
+            item {
+                QuickActivityCard(
+                    activeCalories = state.quickActivityCalories,
+                    activeMinutes = state.quickActivityMinutes,
+                    pendingOutbox = state.healthPendingOutbox,
+                    onOpen = { viewModel.onEvent(PlanUiEvent.OpenActivityInsights) },
+                    onLog = { viewModel.onEvent(PlanUiEvent.OpenActivityLogger) },
+                )
+            }
+
+            item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActionsRow(
                         enabled = state.isViewingCurrentWeek,
                         onLogCheat = { showCheatDialog = true },
                         onRegenerate = { viewModel.onEvent(PlanUiEvent.GenerateWeek) },
+                        onLogWeight = { viewModel.onEvent(PlanUiEvent.ShowWeightDialog) },
                     )
                     if (!state.isViewingCurrentWeek) {
                         Text(
@@ -561,11 +595,142 @@ private fun moodEmoji(mood: DailyMood): String = when (mood) {
     DailyMood.Good -> "\uD83D\uDE0A"
     DailyMood.Great -> "\uD83E\uDD29"
 }
+
+@Composable
+private fun QuickSleepCard(
+    minutes: Int,
+    recoveryScore: Int,
+    synced: Boolean,
+    onOpen: () -> Unit,
+) {
+    val hours = minutes / 60
+    val remMinutes = minutes % 60
+    AppCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "LAST NIGHT'S SLEEP",
+                color = TextMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = if (synced) "SYNCED" else "NOT LINKED",
+                color = if (synced) Primary else TextMuted,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+                .clickable(onClick = onOpen),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text(
+                    text = String.format(Locale.US, "%dh %02dm", hours, remMinutes),
+                    color = TextMain,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    text = "Recovery $recoveryScore%",
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                )
+            }
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = TextMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickActivityCard(
+    activeCalories: Int,
+    activeMinutes: Int,
+    pendingOutbox: Int,
+    onOpen: () -> Unit,
+    onLog: () -> Unit,
+) {
+    val progress = (activeCalories / 600f).coerceIn(0f, 1f)
+    AppCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "ACTIVE BURN",
+                color = TextMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = "Queue $pendingOutbox",
+                color = TextMuted,
+                fontSize = 10.sp,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+                .clickable(onClick = onOpen),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "$activeCalories kcal",
+                    color = TextMain,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    text = "$activeMinutes min exercise",
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(CardBorder),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(progress)
+                            .background(Primary),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            TextButton(onClick = onLog) {
+                Text("Log Session", color = Primary, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
 @Composable
 private fun ActionsRow(
     enabled: Boolean,
     onLogCheat: () -> Unit,
     onRegenerate: () -> Unit,
+    onLogWeight: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -613,6 +778,28 @@ private fun ActionsRow(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text("Regenerate", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+
+        Button(
+            onClick = onLogWeight,
+            enabled = enabled,
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Primary,
+                contentColor = BgColor,
+                disabledContainerColor = Primary.copy(alpha = 0.35f),
+                disabledContentColor = BgColor.copy(alpha = 0.65f),
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Check,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Log Weight", fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -868,6 +1055,40 @@ private fun saveMealPhotoFromUri(
         } ?: return null
         outFile.absolutePath
     }.getOrNull()
+}
+
+@Composable
+private fun WeightLogDialog(
+    value: String,
+    onDismiss: () -> Unit,
+    onValueChange: (String) -> Unit,
+    onSave: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Log Weight") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Enter today's scale weight in kg.")
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    label = { Text("kg") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSave) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
 }
 
 @Composable

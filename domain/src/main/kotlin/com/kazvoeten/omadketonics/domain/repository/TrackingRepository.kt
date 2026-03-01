@@ -7,6 +7,10 @@ import java.time.LocalDate
 
 interface TrackingRepository {
     fun observeMealHistory(): Flow<List<MealHistoryEntry>>
+    fun observeMealHistoryBetween(
+        startDate: LocalDate,
+        endDate: LocalDate,
+    ): Flow<List<MealHistoryEntry>>
     fun observeWeights(): Flow<Map<LocalDate, Float>>
     fun observeMoods(): Flow<Map<LocalDate, DailyMood>>
     fun observeRatings(): Flow<Map<String, Int>>

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 class LogMealUseCase @Inject constructor(
     private val weekPlanRepository: WeekPlanRepository,
     private val trackingRepository: TrackingRepository,
+    private val queueMealNutritionWriteUseCase: QueueMealNutritionWriteUseCase,
     private val dateProvider: DateProvider,
 ) {
     suspend fun setRecipeEaten(recipe: Recipe, eaten: Boolean) {
@@ -18,17 +19,27 @@ class LogMealUseCase @Inject constructor(
         val today = dateProvider.today()
         if (eaten) {
             trackingRepository.removeMealHistoryForDate(today)
+            val entry = MealHistoryEntry(
+                date = today,
+                mealId = recipe.id,
+                name = recipe.name,
+                calories = recipe.calories,
+                protein = recipe.protein,
+                carbs = recipe.carbs,
+                fat = recipe.fat,
+            )
             trackingRepository.upsertMealHistory(
                 MealHistoryEntry(
-                    date = today,
-                    mealId = recipe.id,
-                    name = recipe.name,
-                    calories = recipe.calories,
-                    protein = recipe.protein,
-                    carbs = recipe.carbs,
-                    fat = recipe.fat,
+                    date = entry.date,
+                    mealId = entry.mealId,
+                    name = entry.name,
+                    calories = entry.calories,
+                    protein = entry.protein,
+                    carbs = entry.carbs,
+                    fat = entry.fat,
                 ),
             )
+            queueMealNutritionWriteUseCase.upsert(entry)
             return
         }
 
@@ -38,6 +49,7 @@ class LogMealUseCase @Inject constructor(
             .firstOrNull { it.date == today }
         if (todayEntry?.mealId == recipe.id) {
             trackingRepository.removeMealHistoryForDate(today)
+            queueMealNutritionWriteUseCase.delete(today)
         }
     }
 
@@ -58,17 +70,17 @@ class LogMealUseCase @Inject constructor(
         val title = name.trim().ifBlank { "Cheat Meal" }
         val today = dateProvider.today()
         trackingRepository.removeMealHistoryForDate(today)
-        trackingRepository.upsertMealHistory(
-            MealHistoryEntry(
-                date = today,
-                mealId = "cheat-$today",
-                name = "CHEAT: $title",
-                calories = calories,
-                protein = protein,
-                carbs = carbs,
-                fat = fat,
-            ),
+        val entry = MealHistoryEntry(
+            date = today,
+            mealId = "cheat-$today",
+            name = "CHEAT: $title",
+            calories = calories,
+            protein = protein,
+            carbs = carbs,
+            fat = fat,
         )
+        trackingRepository.upsertMealHistory(entry)
+        queueMealNutritionWriteUseCase.upsert(entry)
         return null
     }
 }

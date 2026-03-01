@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.hilt.android)
@@ -40,9 +40,11 @@ dependencies {
     api(libs.okhttp.logging)
     api(libs.moshi.kotlin)
     implementation(libs.dagger.hilt.android)
+    implementation(libs.androidx.health.connect.client)
     ksp(libs.dagger.hilt.compiler)
 
     testImplementation(libs.junit)
+    testImplementation(libs.androidx.health.connect.testing)
 }
 
 

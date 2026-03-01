@@ -24,6 +24,14 @@ class TrackingRepositoryImpl @Inject constructor(
         return trackingDao.observeMealHistory().map { list -> list.map { it.toDomain() } }
     }
 
+    override fun observeMealHistoryBetween(
+        startDate: LocalDate,
+        endDate: LocalDate,
+    ): Flow<List<MealHistoryEntry>> {
+        return trackingDao.observeMealHistoryBetween(startDate.toString(), endDate.toString())
+            .map { list -> list.map { it.toDomain() } }
+    }
+
     override fun observeWeights(): Flow<Map<LocalDate, Float>> {
         return trackingDao.observeWeightLogs().map { list ->
             list.map { it.toDomainEntry() }.toMap()
