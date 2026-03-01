@@ -1,11 +1,9 @@
 package com.kazvoeten.omadketonics.feature.recipes
 
 import android.widget.Toast
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,12 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,13 +52,10 @@ import com.kazvoeten.omadketonics.model.Ingredient
 import com.kazvoeten.omadketonics.model.OpenFoodFactsProduct
 import com.kazvoeten.omadketonics.model.Recipe
 import com.kazvoeten.omadketonics.ui.components.RecipeDetailsDialog
-import kotlin.math.max
+import com.kazvoeten.omadketonics.ui.components.RecipeImage
 import kotlin.math.roundToInt
 
-private val CarbsMacroColor = Color(0xFF7CE0BB)
-private val ProteinMacroColor = Color(0xFFFFE285)
-private val FatMacroColor = Color(0xFFFF91A4)
-private val RecipeIconOptions = listOf("🍽️", "🥗", "🥩", "🍖", "🌯", "🍲", "🍳", "🐟", "🥘", "🍗", "🥣", "🥪")
+private val RecipeIconOptions = listOf("\uD83C\uDF7D\uFE0F", "\uD83E\uDD57", "\uD83E\uDD69", "\uD83C\uDF56", "\uD83C\uDF2F", "\uD83C\uDF72", "\uD83C\uDF73", "\uD83D\uDC1F", "\uD83E\uDD58", "\uD83C\uDF57", "\uD83E\uDD63", "\uD83E\uDD6A")
 
 @Composable
 fun RecipesRoute(
@@ -102,7 +92,7 @@ fun RecipesRoute(
         }
     }
 
-    val selectedRecipe = viewModel.selectedRecipe()
+    val selectedRecipe = state.recipes.firstOrNull { it.id == state.selectedRecipeId }
     val editorSeed = viewModel.editingRecipe()
 
     if (selectedRecipe != null) {
@@ -114,6 +104,8 @@ fun RecipesRoute(
             fat = selectedRecipe.fat,
             ingredients = selectedRecipe.ingredients,
             instructions = selectedRecipe.instructions,
+            recipeImageUri = selectedRecipe.imageUri,
+            recipeIcon = selectedRecipe.icon,
             weekAverageCalories = state.weekAverageCalories,
             inCurrentPlan = state.inPlanRecipeIds.contains(selectedRecipe.id),
             canAddToWeek = state.isViewingCurrentWeek,
@@ -191,163 +183,87 @@ fun RecipesRoute(
 
         items(state.recipes, key = { it.id }) { recipe ->
             Card(
+                onClick = { viewModel.onEvent(RecipesUiEvent.OpenRecipe(recipe.id)) },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = CardDefaults.outlinedCardBorder(),
-                modifier = Modifier.clickable { viewModel.onEvent(RecipesUiEvent.OpenRecipe(recipe.id)) },
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top,
+                    RecipeImage(
+                        imageUri = recipe.imageUri,
+                        fallbackIcon = recipe.icon,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(156.dp),
+                        iconFontSize = 54.sp,
+                    )
+
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                recipe.name,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = "${recipe.calories} kcal",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(top = 2.dp),
-                            )
-                            Text(
-                                text = recipe.mainIngredientsPreview(),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 11.sp,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = 3.dp),
-                            )
-                        }
-                        if (state.inPlanRecipeIds.contains(recipe.id)) {
-                            Text(
-                                text = "IN PLAN",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    recipe.name,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = "${recipe.calories} kcal | ${recipe.protein}g protein | ${recipe.fat}g fat",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                                Text(
+                                    text = recipe.mainIngredientsPreview(),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(top = 3.dp),
+                                )
+                            }
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                if (state.inPlanRecipeIds.contains(recipe.id)) {
+                                    Text(
+                                        text = "IN PLAN",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp,
+                                    )
+                                }
+                                TextButton(
+                                    onClick = { viewModel.onEvent(RecipesUiEvent.OpenRecipe(recipe.id)) },
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                        horizontal = 8.dp,
+                                        vertical = 2.dp,
+                                    ),
+                                ) {
+                                    Text(
+                                        text = "View",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
+                            }
                         }
                     }
-
-                    RecipeCardMacroOverview(
-                        protein = recipe.protein,
-                        carbs = recipe.carbs,
-                        fat = recipe.fat,
-                    )
                 }
             }
         }
     }
-}
-
-@Composable
-private fun RecipeCardMacroOverview(
-    protein: Int,
-    carbs: Int,
-    fat: Int,
-) {
-    val total = max(1, protein + carbs + fat).toFloat()
-    val carbsSweep = (carbs / total) * 360f
-    val proteinSweep = (protein / total) * 360f
-    val fatSweep = (fat / total) * 360f
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            MacroGramRow(label = "Carbs", grams = carbs, color = CarbsMacroColor)
-            MacroGramRow(label = "Protein", grams = protein, color = ProteinMacroColor)
-            MacroGramRow(label = "Fat", grams = fat, color = FatMacroColor)
-        }
-
-        Box(modifier = Modifier.padding(end = 8.dp, bottom = 6.dp)) {
-            Canvas(modifier = Modifier.width(88.dp).height(88.dp)) {
-                drawMacroRingArc(
-                    color = FatMacroColor,
-                    startAngle = -45f,
-                    sweep = if (fat > 0) max(12f, fatSweep) else 0f,
-                    scale = 1f,
-                    stroke = 9.dp.toPx(),
-                )
-                drawMacroRingArc(
-                    color = ProteinMacroColor,
-                    startAngle = 20f,
-                    sweep = if (protein > 0) max(12f, proteinSweep) else 0f,
-                    scale = 0.74f,
-                    stroke = 9.dp.toPx(),
-                )
-                drawMacroRingArc(
-                    color = CarbsMacroColor,
-                    startAngle = 45f,
-                    sweep = if (carbs > 0) max(12f, carbsSweep) else 0f,
-                    scale = 0.48f,
-                    stroke = 9.dp.toPx(),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MacroGramRow(
-    label: String,
-    grams: Int,
-    color: Color,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(7.dp)
-                .height(7.dp)
-                .background(color = color, shape = CircleShape),
-        )
-        Text(
-            text = "$label ${grams}g",
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold,
-        )
-    }
-}
-
-private fun DrawScope.drawMacroRingArc(
-    color: Color,
-    startAngle: Float,
-    sweep: Float,
-    scale: Float,
-    stroke: Float,
-) {
-    if (sweep <= 0f) return
-    val ringSize = size.minDimension * scale
-    val topLeft = Offset(
-        x = (size.width - ringSize) / 2f,
-        y = (size.height - ringSize) / 2f,
-    )
-    drawArc(
-        color = color,
-        startAngle = startAngle,
-        sweepAngle = sweep,
-        useCenter = false,
-        topLeft = topLeft,
-        size = Size(ringSize, ringSize),
-        style = Stroke(width = stroke, cap = StrokeCap.Round),
-    )
 }
 
 private fun Recipe.mainIngredientsPreview(limit: Int = 3): String {
@@ -358,7 +274,7 @@ private fun Recipe.mainIngredientsPreview(limit: Int = 3): String {
     if (top.isEmpty()) return "Main ingredients: none listed"
     val extra = (names.size - top.size).coerceAtLeast(0)
     val suffix = if (extra > 0) " +$extra more" else ""
-    return "Main ingredients: ${top.joinToString(" • ")}$suffix"
+    return "Main ingredients: ${top.joinToString(" | ")}$suffix"
 }
 
 @Composable
@@ -567,3 +483,5 @@ private fun SearchResultRow(result: OpenFoodFactsProduct, onAdd: () -> Unit) {
         }
     }
 }
+
+

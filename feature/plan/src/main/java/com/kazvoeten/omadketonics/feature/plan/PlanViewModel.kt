@@ -51,6 +51,7 @@ class PlanViewModel @Inject constructor(
             PlanMealItemUi(
                 recipeId = recipe.id,
                 recipeIcon = recipe.icon,
+                recipeImageUri = recipe.imageUri,
                 name = recipe.name,
                 calories = recipe.calories,
                 protein = recipe.protein,
@@ -104,10 +105,20 @@ class PlanViewModel @Inject constructor(
                         effectEmitter.emit(PlanEffect.Message("Recipe not found"))
                         return@launch
                     }
+
+                    if (event.eaten) {
+                        if (!event.capturedImageUri.isNullOrBlank()) {
+                            recipeRepository.saveRecipe(recipe.copy(imageUri = event.capturedImageUri))
+                        }
+                        event.rating?.let { rating ->
+                            trackingRepository.setRating(recipe.id, rating)
+                        }
+                    }
+
                     logMealUseCase.setRecipeEaten(recipe, eaten = event.eaten)
                     effectEmitter.emit(
                         PlanEffect.Message(
-                            if (event.eaten) "Meal completed!" else "Meal marked as pending",
+                            if (event.eaten) "Meal completed and rated!" else "Meal marked as pending",
                         ),
                     )
                 }

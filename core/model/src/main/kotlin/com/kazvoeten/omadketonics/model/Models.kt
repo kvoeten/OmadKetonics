@@ -45,7 +45,8 @@ data class Recipe(
     val fat: Int,
     val ingredients: List<Ingredient>,
     val instructions: List<String>,
-    val icon: String = "🍽️",
+    val icon: String = "\uD83C\uDF7D\uFE0F",
+    val imageUri: String? = null,
 )
 
 data class MealHistoryEntry(

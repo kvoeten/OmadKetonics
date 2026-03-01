@@ -3,7 +3,10 @@ package com.kazvoeten.omadketonics.feature.rankings
 data class RankingItemUi(
     val recipeId: String,
     val name: String,
+    val icon: String,
     val rating: Int,
+    val loggedCount: Int,
+    val metaTag: String,
 )
 
 data class RankingsUiState(

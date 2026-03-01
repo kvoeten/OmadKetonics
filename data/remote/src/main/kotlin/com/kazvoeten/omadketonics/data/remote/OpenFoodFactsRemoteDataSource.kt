@@ -8,7 +8,7 @@ import javax.inject.Inject
 class OpenFoodFactsRemoteDataSource @Inject constructor(
     private val service: OpenFoodFactsService,
 ) {
-    suspend fun searchProducts(query: String, pageSize: Int = 24): List<OpenFoodFactsProduct> {
+    suspend fun searchProducts(query: String, pageSize: Int = 12): List<OpenFoodFactsProduct> {
         val normalized = query.trim()
         if (normalized.isBlank()) return emptyList()
 

@@ -7,6 +7,7 @@ import com.kazvoeten.omadketonics.model.MacroAverages
 data class PlanMealItemUi(
     val recipeId: String,
     val recipeIcon: String,
+    val recipeImageUri: String?,
     val name: String,
     val calories: Int,
     val protein: Int,
@@ -30,7 +31,13 @@ data class PlanUiState(
 
 sealed interface PlanUiEvent {
     data class SetMood(val mood: DailyMood?) : PlanUiEvent
-    data class SetMealEaten(val recipeId: String, val eaten: Boolean) : PlanUiEvent
+    data class SetMealEaten(
+        val recipeId: String,
+        val eaten: Boolean,
+        val capturedImageUri: String? = null,
+        val rating: Int? = null,
+    ) : PlanUiEvent
+
     data class LogCheatMeal(
         val name: String,
         val calories: Int,

@@ -65,6 +65,8 @@ fun RecipeDetailsDialog(
     fat: Int,
     ingredients: List<Ingredient>,
     instructions: List<String>,
+    recipeImageUri: String? = null,
+    recipeIcon: String = "\uD83C\uDF7D\uFE0F",
     weekAverageCalories: Int,
     inCurrentPlan: Boolean,
     canAddToWeek: Boolean,
@@ -124,6 +126,23 @@ fun RecipeDetailsDialog(
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                             border = CardDefaults.outlinedCardBorder(),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            RecipeImage(
+                                imageUri = recipeImageUri,
+                                fallbackIcon = recipeIcon,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(190.dp),
+                                iconFontSize = 54.sp,
+                            )
+                        }
+                    }
+
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            border = CardDefaults.outlinedCardBorder(),
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text("Overview", fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -132,6 +151,12 @@ fun RecipeDetailsDialog(
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.Black,
                                     modifier = Modifier.padding(top = 4.dp),
+                                )
+                                Text(
+                                    text = "${protein}g protein | ${carbs}g carbs | ${fat}g fat",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 2.dp),
                                 )
                                 Text(
                                     text = "Compared to week average",

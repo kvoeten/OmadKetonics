@@ -1,5 +1,10 @@
 package com.kazvoeten.omadketonics.feature.plan
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,6 +44,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,6 +69,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kazvoeten.omadketonics.model.DailyMood
 import com.kazvoeten.omadketonics.model.MacroAverages
 import com.kazvoeten.omadketonics.ui.components.RecipeDetailsDialog
+import com.kazvoeten.omadketonics.ui.components.StarRow
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -83,11 +93,39 @@ fun PlanRoute(
     onEditRecipe: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showCheatDialog by remember { mutableStateOf(false) }
     var selectedMealId by remember { mutableStateOf<String?>(null) }
+    var pendingMealReview by remember { mutableStateOf<PlanMealItemUi?>(null) }
+    var pendingMealPhotoUri by remember { mutableStateOf<String?>(null) }
+    var showPhotoPrompt by remember { mutableStateOf(false) }
+    var showRatingDialog by remember { mutableStateOf(false) }
     val selectedMeal = state.meals.firstOrNull { it.recipeId == selectedMealId }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview(),
+    ) { bitmap ->
+        val recipeId = pendingMealReview?.recipeId
+        pendingMealPhotoUri = if (bitmap != null && recipeId != null) {
+            saveMealPhoto(context, recipeId, bitmap)
+        } else {
+            null
+        }
+        showRatingDialog = pendingMealReview != null
+    }
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+    ) { uri ->
+        val recipeId = pendingMealReview?.recipeId
+        pendingMealPhotoUri = if (uri != null && recipeId != null) {
+            saveMealPhotoFromUri(context, recipeId, uri)
+        } else {
+            null
+        }
+        showRatingDialog = pendingMealReview != null
+    }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -124,6 +162,8 @@ fun PlanRoute(
             fat = selectedMeal.fat,
             ingredients = selectedMeal.ingredients,
             instructions = selectedMeal.instructions,
+            recipeImageUri = selectedMeal.recipeImageUri,
+            recipeIcon = selectedMeal.recipeIcon,
             weekAverageCalories = state.averages.calories,
             inCurrentPlan = true,
             canAddToWeek = false,
@@ -133,6 +173,55 @@ fun PlanRoute(
                 onEditRecipe(selectedMeal.recipeId)
             },
             onDismiss = { selectedMealId = null },
+        )
+    }
+
+    if (showPhotoPrompt && pendingMealReview != null) {
+        PhotoPromptDialog(
+            mealName = pendingMealReview?.name.orEmpty(),
+            onTakePhoto = {
+                showPhotoPrompt = false
+                cameraLauncher.launch(null)
+            },
+            onPickGallery = {
+                showPhotoPrompt = false
+                galleryLauncher.launch("image/*")
+            },
+            onSkip = {
+                showPhotoPrompt = false
+                showRatingDialog = true
+            },
+            onCancel = {
+                showPhotoPrompt = false
+                pendingMealPhotoUri = null
+                pendingMealReview = null
+            },
+        )
+    }
+
+    if (showRatingDialog && pendingMealReview != null) {
+        MealRatingDialog(
+            mealName = pendingMealReview?.name.orEmpty(),
+            initialRating = pendingMealReview?.rating?.coerceIn(1, 5) ?: 3,
+            onConfirm = { rating ->
+                val meal = pendingMealReview ?: return@MealRatingDialog
+                viewModel.onEvent(
+                    PlanUiEvent.SetMealEaten(
+                        recipeId = meal.recipeId,
+                        eaten = true,
+                        capturedImageUri = pendingMealPhotoUri,
+                        rating = rating,
+                    ),
+                )
+                showRatingDialog = false
+                pendingMealPhotoUri = null
+                pendingMealReview = null
+            },
+            onCancel = {
+                showRatingDialog = false
+                pendingMealPhotoUri = null
+                pendingMealReview = null
+            },
         )
     }
 
@@ -221,12 +310,18 @@ fun PlanRoute(
                     enabled = state.isViewingCurrentWeek,
                     onOpenRecipe = { selectedMealId = meal.recipeId },
                     onToggleEaten = {
-                        viewModel.onEvent(
-                            PlanUiEvent.SetMealEaten(
-                                recipeId = meal.recipeId,
-                                eaten = !meal.isEaten,
-                            ),
-                        )
+                        if (meal.isEaten) {
+                            viewModel.onEvent(
+                                PlanUiEvent.SetMealEaten(
+                                    recipeId = meal.recipeId,
+                                    eaten = false,
+                                ),
+                            )
+                        } else {
+                            pendingMealReview = meal
+                            pendingMealPhotoUri = null
+                            showPhotoPrompt = true
+                        }
                     },
                 )
             }
@@ -664,6 +759,115 @@ private fun AppCard(
             content = content,
         )
     }
+}
+
+@Composable
+private fun PhotoPromptDialog(
+    mealName: String,
+    onTakePhoto: () -> Unit,
+    onPickGallery: () -> Unit,
+    onSkip: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Log Meal") },
+        text = {
+            Text(
+                text = "Take a meal photo for \"$mealName\"? You can skip and keep the current recipe image.",
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onTakePhoto) {
+                Text("Take Photo")
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onPickGallery) {
+                    Text("Gallery")
+                }
+                TextButton(onClick = onSkip) {
+                    Text("Skip")
+                }
+                TextButton(onClick = onCancel) {
+                    Text("Cancel")
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun MealRatingDialog(
+    mealName: String,
+    initialRating: Int,
+    onConfirm: (Int) -> Unit,
+    onCancel: () -> Unit,
+) {
+    var rating by remember(initialRating) { mutableIntStateOf(initialRating.coerceIn(1, 5)) }
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Rate \"$mealName\"") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("This updates recipe rankings for future plans.")
+                StarRow(
+                    rating = rating,
+                    size = 30.dp,
+                    onRate = { selected -> rating = selected },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(rating) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) {
+                Text("Cancel")
+            }
+        },
+    )
+}
+
+private fun saveMealPhoto(
+    context: Context,
+    recipeId: String,
+    bitmap: Bitmap,
+): String? {
+    val safeId = recipeId.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+    val imageDir = File(context.filesDir, "recipe_images").apply { mkdirs() }
+    val outFile = File(imageDir, "${safeId}.jpg")
+
+    return runCatching {
+        FileOutputStream(outFile).use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream)
+            stream.flush()
+        }
+        outFile.absolutePath
+    }.getOrNull()
+}
+
+private fun saveMealPhotoFromUri(
+    context: Context,
+    recipeId: String,
+    uri: Uri,
+): String? {
+    val safeId = recipeId.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+    val imageDir = File(context.filesDir, "recipe_images").apply { mkdirs() }
+    val outFile = File(imageDir, "${safeId}.jpg")
+
+    return runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(outFile).use { output ->
+                input.copyTo(output)
+                output.flush()
+            }
+        } ?: return null
+        outFile.absolutePath
+    }.getOrNull()
 }
 
 @Composable

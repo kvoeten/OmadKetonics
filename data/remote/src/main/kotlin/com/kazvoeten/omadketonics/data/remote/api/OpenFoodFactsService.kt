@@ -11,7 +11,7 @@ interface OpenFoodFactsService {
         @Query("search_simple") searchSimple: Int = 1,
         @Query("action") action: String = "process",
         @Query("json") json: Int = 1,
-        @Query("page_size") pageSize: Int = 24,
+        @Query("page_size") pageSize: Int = 12,
         @Query("fields") fields: String = "code,product_name,product_name_en,brands,nutriscore_grade,nutriments",
     ): OpenFoodFactsSearchResponseDto
 }

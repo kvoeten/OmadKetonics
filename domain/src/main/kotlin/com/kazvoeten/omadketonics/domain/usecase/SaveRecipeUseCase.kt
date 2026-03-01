@@ -2,6 +2,7 @@ package com.kazvoeten.omadketonics.domain.usecase
 
 import com.kazvoeten.omadketonics.domain.model.SaveRecipeRequest
 import com.kazvoeten.omadketonics.domain.repository.RecipeRepository
+import com.kazvoeten.omadketonics.model.Ingredient
 import com.kazvoeten.omadketonics.model.MacroAverages
 import com.kazvoeten.omadketonics.model.Recipe
 import java.util.Locale
@@ -26,11 +27,12 @@ class SaveRecipeUseCase @Inject constructor(
 
         val instructions = request.instructionsInput.lines().map { it.trim() }.filter { it.isNotBlank() }
         if (instructions.isEmpty()) return "Add at least one prep step."
-        val icon = request.icon.trim().ifBlank { "🍽️" }
+        val icon = request.icon.trim().ifBlank { "\uD83C\uDF7D\uFE0F" }
 
         val macro = calculateRecipeMacros(cleanedIngredients)
         if (macro.calories <= 0) return "Calculated calories are zero. Adjust ingredient amounts."
 
+        val existingRecipe = request.existingId?.let { recipeRepository.getRecipe(it) }
         val recipeId = request.existingId ?: generateRecipeId(trimmedName, recipeRepository.getRecipes())
         val recipe = Recipe(
             id = recipeId,
@@ -42,13 +44,14 @@ class SaveRecipeUseCase @Inject constructor(
             ingredients = cleanedIngredients,
             instructions = instructions,
             icon = icon,
+            imageUri = existingRecipe?.imageUri,
         )
 
         recipeRepository.saveRecipe(recipe)
         return null
     }
 
-    private fun calculateRecipeMacros(ingredients: List<com.kazvoeten.omadketonics.model.Ingredient>): MacroAverages {
+    private fun calculateRecipeMacros(ingredients: List<Ingredient>): MacroAverages {
         var calories = 0f
         var protein = 0f
         var carbs = 0f

@@ -78,7 +78,7 @@ class RecipesViewModel @Inject constructor(
             return RecipeEditorSeed(
                 existingId = null,
                 name = "",
-                icon = "🍽️",
+                icon = "\uD83C\uDF7D\uFE0F",
                 ingredients = emptyList(),
                 instructions = "",
             )
@@ -92,8 +92,6 @@ class RecipesViewModel @Inject constructor(
             instructions = recipe.instructions.joinToString("\n"),
         )
     }
-
-    fun selectedRecipe() = state.value.recipes.firstOrNull { it.id == state.value.selectedRecipeId }
 
     fun onEvent(event: RecipesUiEvent) {
         when (event) {

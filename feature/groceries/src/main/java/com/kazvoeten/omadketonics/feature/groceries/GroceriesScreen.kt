@@ -344,6 +344,16 @@ private fun SearchResultsCard(
                     color = Color(0xFFEF4444),
                     fontSize = 12.sp,
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "API is slow right now. Add \"${state.query.trim()}\" manually",
+                    color = Primary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .alpha(if (enabled) 1f else 0.5f)
+                        .then(if (enabled) Modifier.clickable(onClick = onAddManual) else Modifier),
+                )
             }
 
             state.searchResults.isEmpty() -> {

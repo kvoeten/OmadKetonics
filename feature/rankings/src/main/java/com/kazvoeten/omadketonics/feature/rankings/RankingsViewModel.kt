@@ -19,7 +19,9 @@ class RankingsViewModel @Inject constructor(
     val state = combine(
         recipeRepository.observeRecipes(),
         trackingRepository.observeRatings(),
-    ) { recipes, ratings ->
+        trackingRepository.observeMealHistory(),
+    ) { recipes, ratings, mealHistory ->
+        val loggedByRecipe = mealHistory.groupingBy { it.mealId }.eachCount()
         val sorted = recipes.sortedByDescending { ratings[it.id] ?: 0 }
         RankingsUiState(
             isLoading = false,
@@ -27,7 +29,15 @@ class RankingsViewModel @Inject constructor(
                 RankingItemUi(
                     recipeId = recipe.id,
                     name = recipe.name,
+                    icon = recipe.icon,
                     rating = ratings[recipe.id] ?: 0,
+                    loggedCount = loggedByRecipe[recipe.id] ?: 0,
+                    metaTag = when {
+                        recipe.protein >= 100 -> "High Protein"
+                        recipe.fat >= 140 -> "Keto Fuel"
+                        recipe.carbs <= 30 -> "Low Carb"
+                        else -> "Balanced OMAD"
+                    },
                 )
             },
         )

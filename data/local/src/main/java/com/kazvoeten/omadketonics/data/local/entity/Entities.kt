@@ -14,6 +14,7 @@ data class RecipeEntity(
     val carbs: Int,
     val fat: Int,
     @ColumnInfo(name = "recipe_icon") val recipeIcon: String,
+    @ColumnInfo(name = "recipe_image_uri") val recipeImageUri: String?,
 )
 
 @Entity(
